@@ -76,6 +76,7 @@ const fill = ref(true)
 const momentum = ref(true)
 const pulse = ref(true)
 const exaggerate = ref(false)
+const degen = ref(false)
 
 // Internal refs
 let lastValue = 100
@@ -314,7 +315,7 @@ const colorPresets = [
     :style="cssVars"
   >
     <h1 class="title">Vue Liveline</h1>
-    <p class="subtitle">Real-time data visualization component for Vue 3</p>
+    <p class="subtitle">Real-time data visualization component for Vue 3 / Vue 3 实时数据可视化组件</p>
 
     <!-- Tab Switcher -->
     <div class="tab-bar">
@@ -323,14 +324,14 @@ const colorPresets = [
         :class="{ active: activeTab === 'single' }"
         @click="activeTab = 'single'"
       >
-        Single Series
+        Single Series (单系列)
       </button>
       <button
         class="tab-btn"
         :class="{ active: activeTab === 'multi' }"
         @click="activeTab = 'multi'"
       >
-        Multi Series
+        Multi Series (多系列)
       </button>
     </div>
 
@@ -338,7 +339,7 @@ const colorPresets = [
     <template v-if="activeTab === 'single'">
       <!-- State Controls -->
       <section class="control-section">
-        <span class="section-label">STATE</span>
+        <span class="section-label">STATE (状态)</span>
         <div class="control-group">
           <button
             v-for="s in (['loading', 'loading-hold', 'live', 'empty'] as Scenario[])"
@@ -347,20 +348,20 @@ const colorPresets = [
             :class="{ active: scenario === s }"
             @click="scenario = s"
           >
-            {{ s === 'loading' ? 'Loading → Live' : s === 'loading-hold' ? 'Loading' : s === 'live' ? 'Live' : 'No Data' }}
+            {{ s === 'loading' ? 'Loading → Live (加载→实时)' : s === 'loading-hold' ? 'Loading (加载中)' : s === 'live' ? 'Live (实时)' : 'No Data (无数据)' }}
           </button>
           <div class="sep" />
           <button class="btn" :class="{ active: paused }" @click="paused = !paused">
-            {{ paused ? '▶ Play' : '⏸ Pause' }}
+            {{ paused ? '▶ Play (播放)' : '⏸ Pause (暂停)' }}
           </button>
         </div>
       </section>
 
       <!-- Data Controls -->
       <section class="control-section">
-        <span class="section-label">DATA</span>
+        <span class="section-label">DATA (数据)</span>
         <div class="control-group">
-          <span class="label">Volatility:</span>
+          <span class="label">Volatility (波动):</span>
           <button
             v-for="v in VOLATILITIES"
             :key="v"
@@ -368,10 +369,10 @@ const colorPresets = [
             :class="{ active: volatility === v }"
             @click="volatility = v"
           >
-            {{ v }}
+            {{ v === 'calm' ? 'calm (平稳)' : v === 'normal' ? 'normal (正常)' : v === 'spiky' ? 'spiky (尖峰)' : 'chaos (混乱)' }}
           </button>
           <div class="sep" />
-          <span class="label">Tick rate:</span>
+          <span class="label">Tick rate (刷新率):</span>
           <button
             v-for="t in TICK_RATES"
             :key="t.ms"
@@ -386,7 +387,7 @@ const colorPresets = [
 
       <!-- Window Controls -->
       <section class="control-section">
-        <span class="section-label">WINDOW</span>
+        <span class="section-label">WINDOW (窗口)</span>
         <div class="control-group">
           <button
             v-for="w in TIME_WINDOWS"
@@ -402,12 +403,12 @@ const colorPresets = [
 
       <!-- Theme & Color -->
       <section class="control-section">
-        <span class="section-label">THEME</span>
+        <span class="section-label">THEME (主题)</span>
         <div class="control-group">
-          <button class="btn" :class="{ active: theme === 'dark' }" @click="theme = 'dark'">Dark</button>
-          <button class="btn" :class="{ active: theme === 'light' }" @click="theme = 'light'">Light</button>
+          <button class="btn" :class="{ active: theme === 'dark' }" @click="theme = 'dark'">Dark (深色)</button>
+          <button class="btn" :class="{ active: theme === 'light' }" @click="theme = 'light'">Light (浅色)</button>
           <div class="sep" />
-          <span class="label">Color:</span>
+          <span class="label">Color (颜色):</span>
           <button
             v-for="c in colorPresets"
             :key="c.value"
@@ -421,15 +422,16 @@ const colorPresets = [
 
       <!-- Feature Toggles -->
       <section class="control-section">
-        <span class="section-label">FEATURES</span>
+        <span class="section-label">FEATURES (特性)</span>
         <div class="control-group">
-          <button class="toggle-btn" :class="{ on: grid }" @click="grid = !grid">Grid</button>
-          <button class="toggle-btn" :class="{ on: scrub }" @click="scrub = !scrub">Scrub</button>
-          <button class="toggle-btn" :class="{ on: badge }" @click="badge = !badge">Badge</button>
-          <button class="toggle-btn" :class="{ on: fill }" @click="fill = !fill">Fill</button>
-          <button class="toggle-btn" :class="{ on: momentum }" @click="momentum = !momentum">Momentum</button>
-          <button class="toggle-btn" :class="{ on: pulse }" @click="pulse = !pulse">Pulse</button>
-          <button class="toggle-btn" :class="{ on: exaggerate }" @click="exaggerate = !exaggerate">Exaggerate</button>
+          <button class="toggle-btn" :class="{ on: grid }" @click="grid = !grid">Grid (网格)</button>
+          <button class="toggle-btn" :class="{ on: scrub }" @click="scrub = !scrub">Scrub (十字线)</button>
+          <button class="toggle-btn" :class="{ on: badge }" @click="badge = !badge">Badge (徽章)</button>
+          <button class="toggle-btn" :class="{ on: fill }" @click="fill = !fill">Fill (填充)</button>
+          <button class="toggle-btn" :class="{ on: momentum }" @click="momentum = !momentum">Momentum (动量)</button>
+          <button class="toggle-btn" :class="{ on: pulse }" @click="pulse = !pulse">Pulse (脉冲)</button>
+          <button class="toggle-btn" :class="{ on: exaggerate }" @click="exaggerate = !exaggerate">Exaggerate (夸张)</button>
+          <button class="toggle-btn" :class="{ on: degen }" @click="degen = !degen">Degen (粒子)</button>
         </div>
       </section>
 
@@ -450,11 +452,12 @@ const colorPresets = [
           :momentum="momentum"
           :pulse="pulse"
           :exaggerate="exaggerate"
+          :degen="degen"
         />
       </div>
 
       <!-- Size Variants -->
-      <p class="variants-label">Size variants</p>
+      <p class="variants-label">Size variants (尺寸变体)</p>
       <div class="size-variants">
         <div v-for="size in SIZE_VARIANTS" :key="size.label" class="variant-item">
           <span class="variant-label">{{ size.label }}</span>
@@ -474,6 +477,7 @@ const colorPresets = [
               :scrub="scrub"
               :badge="false"
               :fill="fill"
+              :degen="degen"
             />
           </div>
         </div>
@@ -481,13 +485,13 @@ const colorPresets = [
 
       <!-- Status Bar -->
       <div class="status-bar">
-        <span>ticks: {{ data.length }}</span>
-        <span>loading: {{ scenario === 'loading' || scenario === 'loading-hold' }}</span>
-        <span>paused: {{ paused }}</span>
-        <span>value: {{ value.toFixed(2) }}</span>
-        <span>window: {{ windowSecs }}s</span>
-        <span>tick: {{ tickRate }}ms</span>
-        <span>volatility: {{ volatility }}</span>
+        <span>ticks (数据点): {{ data.length }}</span>
+        <span>loading (加载): {{ scenario === 'loading' || scenario === 'loading-hold' }}</span>
+        <span>paused (暂停): {{ paused }}</span>
+        <span>value (值): {{ value.toFixed(2) }}</span>
+        <span>window (窗口): {{ windowSecs }}s</span>
+        <span>tick (刷新): {{ tickRate }}ms</span>
+        <span>volatility (波动): {{ volatility }}</span>
       </div>
     </template>
 
@@ -495,7 +499,7 @@ const colorPresets = [
     <template v-else>
       <!-- State Controls -->
       <section class="control-section">
-        <span class="section-label">STATE</span>
+        <span class="section-label">STATE (状态)</span>
         <div class="control-group">
           <button
             v-for="s in (['loading', 'loading-hold', 'live', 'empty'] as Scenario[])"
@@ -504,18 +508,18 @@ const colorPresets = [
             :class="{ active: multiScenario === s }"
             @click="multiScenario = s"
           >
-            {{ s === 'loading' ? 'Loading → Live' : s === 'loading-hold' ? 'Loading' : s === 'live' ? 'Live' : 'No Data' }}
+            {{ s === 'loading' ? 'Loading → Live (加载→实时)' : s === 'loading-hold' ? 'Loading (加载中)' : s === 'live' ? 'Live (实时)' : 'No Data (无数据)' }}
           </button>
           <div class="sep" />
           <button class="btn" :class="{ active: multiPaused }" @click="multiPaused = !multiPaused">
-            {{ multiPaused ? '▶ Play' : '⏸ Pause' }}
+            {{ multiPaused ? '▶ Play (播放)' : '⏸ Pause (暂停)' }}
           </button>
         </div>
       </section>
 
       <!-- Series Selection -->
       <section class="control-section">
-        <span class="section-label">SERIES</span>
+        <span class="section-label">SERIES (系列)</span>
         <div class="control-group">
           <button
             v-for="s in SERIES_PRESETS"
@@ -530,16 +534,16 @@ const colorPresets = [
             @click="toggleSeries(s.id)"
           >
             <span class="series-dot" :style="{ background: s.color }" />
-            {{ s.label }}
+            {{ s.id === 'price' ? 'Price (价格)' : s.id === 'volume' ? 'Volume (成交量)' : s.id === 'trades' ? 'Trades (交易)' : 'Depth (深度)' }}
           </button>
         </div>
       </section>
 
       <!-- Data Controls -->
       <section class="control-section">
-        <span class="section-label">DATA</span>
+        <span class="section-label">DATA (数据)</span>
         <div class="control-group">
-          <span class="label">Volatility:</span>
+          <span class="label">Volatility (波动):</span>
           <button
             v-for="v in VOLATILITIES"
             :key="v"
@@ -547,10 +551,10 @@ const colorPresets = [
             :class="{ active: volatility === v }"
             @click="volatility = v"
           >
-            {{ v }}
+            {{ v === 'calm' ? 'calm (平稳)' : v === 'normal' ? 'normal (正常)' : v === 'spiky' ? 'spiky (尖峰)' : 'chaos (混乱)' }}
           </button>
           <div class="sep" />
-          <span class="label">Tick rate:</span>
+          <span class="label">Tick rate (刷新率):</span>
           <button
             v-for="t in TICK_RATES"
             :key="t.ms"
@@ -565,7 +569,7 @@ const colorPresets = [
 
       <!-- Window Controls -->
       <section class="control-section">
-        <span class="section-label">WINDOW</span>
+        <span class="section-label">WINDOW (窗口)</span>
         <div class="control-group">
           <button
             v-for="w in TIME_WINDOWS"
@@ -581,20 +585,19 @@ const colorPresets = [
 
       <!-- Theme -->
       <section class="control-section">
-        <span class="section-label">THEME</span>
+        <span class="section-label">THEME (主题)</span>
         <div class="control-group">
-          <button class="btn" :class="{ active: theme === 'dark' }" @click="theme = 'dark'">Dark</button>
-          <button class="btn" :class="{ active: theme === 'light' }" @click="theme = 'light'">Light</button>
+          <button class="btn" :class="{ active: theme === 'dark' }" @click="theme = 'dark'">Dark (深色)</button>
+          <button class="btn" :class="{ active: theme === 'light' }" @click="theme = 'light'">Light (浅色)</button>
         </div>
       </section>
 
       <!-- Feature Toggles -->
       <section class="control-section">
-        <span class="section-label">FEATURES</span>
+        <span class="section-label">FEATURES (特性)</span>
         <div class="control-group">
-          <button class="toggle-btn" :class="{ on: grid }" @click="grid = !grid">Grid</button>
-          <button class="toggle-btn" :class="{ on: scrub }" @click="scrub = !scrub">Scrub</button>
-          <button class="toggle-btn" :class="{ on: fill }" @click="fill = !fill">Fill</button>
+          <button class="toggle-btn" :class="{ on: grid }" @click="grid = !grid">Grid (网格)</button>
+          <button class="toggle-btn" :class="{ on: scrub }" @click="scrub = !scrub">Scrub (十字线)</button>
         </div>
       </section>
 
@@ -610,7 +613,6 @@ const colorPresets = [
           :window="windowSecs"
           :grid="grid"
           :scrub="scrub"
-          :fill="fill"
         />
       </div>
 
@@ -622,21 +624,21 @@ const colorPresets = [
           class="series-value-item"
         >
           <span class="series-dot" :style="{ background: s.color }" />
-          <span class="series-name">{{ s.label }}:</span>
+          <span class="series-name">{{ s.id === 'price' ? 'Price (价格)' : s.id === 'volume' ? 'Volume (成交量)' : s.id === 'trades' ? 'Trades (交易)' : 'Depth (深度)' }}:</span>
           <span class="series-val">{{ formatValue(seriesValues[s.id]) }}</span>
         </div>
       </div>
 
       <!-- Status Bar -->
       <div class="status-bar">
-        <span>series: {{ enabledSeries.length }}</span>
-        <span>ticks: {{ seriesData.price?.length ?? 0 }}</span>
-        <span>price: {{ formatValue(seriesValues.price) }}</span>
-        <span>loading: {{ multiScenario === 'loading' || multiScenario === 'loading-hold' }}</span>
-        <span>paused: {{ multiPaused }}</span>
-        <span>window: {{ windowSecs }}s</span>
-        <span>tick: {{ tickRate }}ms</span>
-        <span>volatility: {{ volatility }}</span>
+        <span>series (系列): {{ enabledSeries.length }}</span>
+        <span>ticks (数据点): {{ seriesData.price?.length ?? 0 }}</span>
+        <span>price (价格): {{ formatValue(seriesValues.price) }}</span>
+        <span>loading (加载): {{ multiScenario === 'loading' || multiScenario === 'loading-hold' }}</span>
+        <span>paused (暂停): {{ multiPaused }}</span>
+        <span>window (窗口): {{ windowSecs }}s</span>
+        <span>tick (刷新): {{ tickRate }}ms</span>
+        <span>volatility (波动): {{ volatility }}</span>
       </div>
     </template>
   </div>
