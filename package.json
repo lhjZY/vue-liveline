@@ -20,6 +20,7 @@
   "scripts": {
     "dev": "vite",
     "build": "run-p type-check \"build-only {@}\" --",
+    "build:demo": "vite build --config vite.config.demo.ts",
     "preview": "vite preview",
     "build-only": "vite build",
     "type-check": "vue-tsc --build"
@@ -45,8 +46,21 @@
   "keywords": [
     "vue",
     "vue3",
+    "chart",
+    "liveline",
+    "real-time",
+    "canvas",
+    "data-visualization",
     "component"
   ],
-  "author": "",
-  "license": "MIT"
+  "author": "lhjZY",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lhjZY/vue-liveline.git"
+  },
+  "homepage": "https://lhjzy.github.io/vue-liveline/",
+  "bugs": {
+    "url": "https://github.com/lhjZY/vue-liveline/issues"
+  }
 }

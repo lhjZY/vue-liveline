@@ -1,6 +1,6 @@
 # Vue Liveline
 
-[English](./README.md)
+**[在线演示](https://lhjzy.github.io/vue-liveline/)** | [English](./README.md)
 
 一个美观、高性能的 Vue 3 实时数据可视化组件。适用于金融图表、监控仪表盘和实时数据展示。
 

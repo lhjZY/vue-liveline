@@ -1,6 +1,6 @@
 # Vue Liveline
 
-[中文文档](./README.zh-CN.md)
+**[Live Demo](https://lhjzy.github.io/vue-liveline/)** | [中文文档](./README.zh-CN.md)
 
 A beautiful, high-performance real-time data visualization component for Vue 3. Perfect for financial charts, monitoring dashboards, and live data displays.
 
