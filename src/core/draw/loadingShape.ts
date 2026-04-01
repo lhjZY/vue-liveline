@@ -1,6 +1,19 @@
+/**
+ * Shared squiggly line shape and breathing alpha used by both the loading
+ * state and the chart morph transition. Keeping it in one place guarantees
+ * the loading line and chart's starting shape + brightness are identical.
+ */
+
 export const LOADING_AMPLITUDE_RATIO = 0.07
 export const LOADING_SCROLL_SPEED = 0.001
-// 加载状态loading
+
+/**
+ * Returns the squiggly Y position for a loading line.
+ * @param t         Normalized x position across chart width (0–1)
+ * @param centerY   Vertical center of the chart area
+ * @param amplitude Wave height in pixels (chartH * LOADING_AMPLITUDE_RATIO)
+ * @param scroll    Time-based scroll offset (now_ms * LOADING_SCROLL_SPEED)
+ */
 export function loadingY(
   t: number,
   centerY: number,
@@ -14,7 +27,7 @@ export function loadingY(
   )
 }
 
-export function loadingBreath(nowMs: number): number {
-  return 0.22 + 0.08 * Math.sin(nowMs / 1200 * Math.PI)
+/** Breathing alpha for the loading line and chart line at reveal=0. */
+export function loadingBreath(now_ms: number): number {
+  return 0.22 + 0.08 * Math.sin(now_ms / 1200 * Math.PI)
 }
-

@@ -1,6 +1,6 @@
 import type { LivelinePalette, Padding } from '../types'
 import { drawSpline } from '../math/spline'
-import { loadingBreath, loadingY, LOADING_AMPLITUDE_RATIO, LOADING_SCROLL_SPEED } from './loadingShape'
+import { loadingY, loadingBreath, LOADING_AMPLITUDE_RATIO, LOADING_SCROLL_SPEED } from './loadingShape'
 
 /**
  * Draw the loading state: a gently undulating line in accent color at

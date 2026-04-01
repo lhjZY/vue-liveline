@@ -1,28 +1,14 @@
 import type { LivelinePalette, ChartLayout, LivelinePoint, Momentum, ReferenceLine, OrderbookData, DegenOptions } from '../types'
 import { drawGrid, type GridState } from './grid'
 import { drawLine } from './line'
-import { drawDot, drawArrows, drawSimpleDot, drawMultiDot, type ArrowState } from './dot'
-import { drawCrosshair, drawMultiCrosshair, type MultiSeriesHoverEntry } from './crosshair'
+import { drawDot, drawArrows, drawSimpleDot, drawMultiDot } from './dot'
+import { drawCrosshair, drawMultiCrosshair } from './crosshair'
+import type { MultiSeriesHoverEntry } from './crosshair'
 import { drawReferenceLine } from './referenceLine'
 import { drawTimeAxis, type TimeAxisState } from './timeAxis'
 import { drawOrderbook, type OrderbookState } from './orderbook'
 import { drawParticles, spawnOnSwing, type ParticleState } from './particles'
 import { drawEmpty } from './empty'
-import { drawLoading } from './loading'
-
-// Re-export all draw functions and types
-export { drawGrid, type GridState, createGridState } from './grid'
-export { drawLine } from './line'
-export { drawDot, drawArrows, drawSimpleDot, drawMultiDot, type ArrowState, createArrowState } from './dot'
-export { drawCrosshair, drawMultiCrosshair, type MultiSeriesHoverEntry } from './crosshair'
-export { drawReferenceLine } from './referenceLine'
-export { drawTimeAxis, type TimeAxisState, createTimeAxisState } from './timeAxis'
-export { drawOrderbook, type OrderbookState, createOrderbookState } from './orderbook'
-export { drawParticles, spawnOnSwing, type ParticleState, createParticleState } from './particles'
-export { drawEmpty } from './empty'
-export { drawLoading } from './loading'
-export { loadingY, loadingBreath, LOADING_AMPLITUDE_RATIO, LOADING_SCROLL_SPEED } from './loadingShape'
-export { badgeSvgPath, badgePillOnly, BADGE_PAD_X, BADGE_PAD_Y, BADGE_TAIL_LEN, BADGE_TAIL_SPREAD, BADGE_LINE_H } from './badge'
 
 // Constants
 const SHAKE_DECAY_RATE = 0.002
@@ -30,12 +16,37 @@ const SHAKE_MIN_AMPLITUDE = 0.2
 export const FADE_EDGE_WIDTH = 40
 const CROSSHAIR_FADE_MIN_PX = 5
 
+export interface ArrowState { up: number; down: number }
+
+export function createArrowState(): ArrowState {
+  return { up: 0, down: 0 }
+}
+
 export interface ShakeState {
   amplitude: number  // current shake magnitude in px, decays each frame
 }
 
 export function createShakeState(): ShakeState {
   return { amplitude: 0 }
+}
+
+export function createGridState(): GridState {
+  return { interval: 0, labels: new Map() }
+}
+
+export function createTimeAxisState(): TimeAxisState {
+  return { labels: new Map() }
+}
+
+export function createOrderbookState(): OrderbookState {
+  return {
+    labels: [], spawnTimer: 0, smoothSpeed: 60,
+    prevBidTotal: 0, prevAskTotal: 0, churnRate: 0,
+  }
+}
+
+export function createParticleState(): ParticleState {
+  return { particles: [], cooldown: 0, burstCount: 0 }
 }
 
 export interface DrawOptions {
@@ -109,104 +120,134 @@ export function drawFrame(
     return t * t * (3 - 2 * t)
   }
 
-  const scrubX = opts.hoverX
-  const chartRight = layout.w - layout.pad.right
-
-  // 1. Grid (first, so it's behind everything)
-  if (opts.showGrid) {
-    ctx.globalAlpha = revealRamp(0.2, 0.6) * (1 - pause * 0.3)
-    drawGrid(ctx, layout, palette, opts.formatValue, opts.gridState, opts.dt)
-    ctx.globalAlpha = 1
-  }
-
-  // 2. Reference line (between grid and chart line)
-  if (opts.referenceLine) {
-    ctx.globalAlpha = revealRamp(0.3, 0.7)
+  // 1. Reference line (behind everything) — fades with reveal
+  if (opts.referenceLine && reveal > 0.01) {
+    ctx.save()
+    if (reveal < 1) ctx.globalAlpha = reveal
     drawReferenceLine(ctx, layout, palette, opts.referenceLine)
-    ctx.globalAlpha = 1
+    ctx.restore()
   }
 
-  // 3. Line + fill
-  ctx.globalAlpha = 1
-  const pts = drawLine(
-    ctx, layout, palette, opts.visible, opts.smoothValue,
-    opts.now, opts.showFill, scrubX, opts.scrubAmount, reveal, opts.now_ms,
-  )
-
-  // 4. Particles (drawn on top of line, behind dot)
-  if (opts.particleState) {
-    drawParticles(ctx, opts.particleState, opts.dt)
+  // 2. Grid — fades in delayed (15%–70% of reveal)
+  if (opts.showGrid) {
+    const gridAlpha = reveal < 1 ? revealRamp(0.15, 0.7) : 1
+    if (gridAlpha > 0.01) {
+      ctx.save()
+      if (gridAlpha < 1) ctx.globalAlpha = gridAlpha
+      drawGrid(ctx, layout, palette, opts.formatValue, opts.gridState, opts.dt)
+      ctx.restore()
+    }
   }
 
-  // 5. Live dot (at the tip of the line)
+  // 2b. Orderbook (behind line) — fades with reveal
+  if (opts.orderbookData && opts.orderbookState && reveal > 0.01) {
+    ctx.save()
+    if (reveal < 1) ctx.globalAlpha = reveal
+    drawOrderbook(ctx, layout, palette, opts.orderbookData, opts.dt, opts.orderbookState, opts.swingMagnitude)
+    ctx.restore()
+  }
+
+  // 3. Line + fill (with scrub dimming + reveal morphing)
+  const scrubX = opts.scrubAmount > 0.05 ? opts.hoverX : null
+  const pts = drawLine(ctx, layout, palette, opts.visible, opts.smoothValue, opts.now, opts.showFill, scrubX, opts.scrubAmount, reveal, opts.now_ms)
+
+  // 4. Time axis — same timing as grid
+  {
+    const timeAlpha = reveal < 1 ? revealRamp(0.15, 0.7) : 1
+    if (timeAlpha > 0.01) {
+      ctx.save()
+      if (timeAlpha < 1) ctx.globalAlpha = timeAlpha
+      drawTimeAxis(ctx, layout, palette, opts.windowSecs, opts.targetWindowSecs, opts.formatTime, opts.timeAxisState, opts.dt)
+      ctx.restore()
+    }
+  }
+
   if (pts && pts.length > 0) {
-    const [dotX, dotY] = pts[pts.length - 1]
-    
-    // Spawn particles on swing (before drawing dot)
-    if (opts.particleState && opts.particleOptions) {
-      const burstIntensity = spawnOnSwing(
-        opts.particleState,
-        opts.momentum,
-        dotX, dotY,
-        opts.swingMagnitude,
-        palette.line,
-        opts.dt,
-        opts.particleOptions,
-      )
-      // Trigger shake on burst
-      if (burstIntensity > 0 && shake) {
-        shake.amplitude = Math.max(shake.amplitude, burstIntensity * 8)
+    const lastPt = pts[pts.length - 1]
+
+    // 5. Dot — dims during scrub, fades in with reveal (0.3 → 1.0)
+    let dotScrub = opts.scrubAmount
+    if (opts.hoverX !== null && dotScrub > 0) {
+      const distToLive = lastPt[0] - opts.hoverX
+      const fadeStart = Math.min(80, layout.chartW * 0.3)
+      dotScrub = distToLive < CROSSHAIR_FADE_MIN_PX ? 0
+        : distToLive >= fadeStart ? opts.scrubAmount
+        : ((distToLive - CROSSHAIR_FADE_MIN_PX) / (fadeStart - CROSSHAIR_FADE_MIN_PX)) * opts.scrubAmount
+    }
+
+    // Dot appears once shape is recognizable (reveal > 0.3)
+    const dotAlpha = reveal < 0.3 ? 0 : (reveal - 0.3) / 0.7
+    const showPulse = opts.showPulse && reveal > 0.6 && pause < 0.5
+    if (dotAlpha > 0.01) {
+      ctx.save()
+      if (dotAlpha < 1) ctx.globalAlpha = dotAlpha
+      drawDot(ctx, lastPt[0], lastPt[1], palette, showPulse, dotScrub, opts.now_ms)
+      ctx.restore()
+    }
+
+    // 5b. Arrows — appear late in reveal (60%+), fade with pause
+    if (opts.showMomentum) {
+      const arrowReveal = reveal < 1 ? revealRamp(0.6, 1) : 1
+      const arrowAlpha = arrowReveal * (1 - pause)
+      if (arrowAlpha > 0.01) {
+        ctx.save()
+        if (arrowAlpha < 1) ctx.globalAlpha = arrowAlpha
+        drawArrows(
+          ctx, lastPt[0], lastPt[1],
+          opts.momentum, palette, opts.arrowState, opts.dt, opts.now_ms,
+        )
+        ctx.restore()
       }
     }
 
-    ctx.globalAlpha = revealRamp(0.4, 0.8)
-    drawDot(ctx, dotX, dotY, palette, opts.showPulse, opts.scrubAmount, opts.now_ms)
-
-    // Momentum arrows
-    if (opts.showMomentum) {
-      drawArrows(ctx, dotX, dotY, opts.momentum, palette, opts.arrowState, opts.dt, opts.now_ms)
+    // 6. Particles — only when fully revealed
+    if (opts.particleState && reveal > 0.9) {
+      const burstIntensity = spawnOnSwing(
+        opts.particleState, opts.momentum, lastPt[0], lastPt[1],
+        opts.swingMagnitude, palette.line, opts.dt, opts.particleOptions,
+      )
+      if (burstIntensity > 0 && shake) {
+        shake.amplitude = (3 + opts.swingMagnitude * 4) * burstIntensity
+      }
+      drawParticles(ctx, opts.particleState, opts.dt)
     }
-    ctx.globalAlpha = 1
   }
 
-  // 6. Time axis
-  ctx.globalAlpha = revealRamp(0.3, 0.7)
-  drawTimeAxis(
-    ctx, layout, palette, opts.windowSecs, opts.targetWindowSecs,
-    opts.formatTime, opts.timeAxisState, opts.dt,
-  )
-  ctx.globalAlpha = 1
+  // 7. Left edge fade — gradient erase
+  const fadeW = FADE_EDGE_WIDTH
+  ctx.save()
+  ctx.globalCompositeOperation = 'destination-out'
+  const fadeGrad = ctx.createLinearGradient(layout.pad.left, 0, layout.pad.left + fadeW, 0)
+  fadeGrad.addColorStop(0, 'rgba(0, 0, 0, 1)')
+  fadeGrad.addColorStop(1, 'rgba(0, 0, 0, 0)')
+  ctx.fillStyle = fadeGrad
+  ctx.fillRect(0, 0, layout.pad.left + fadeW, layout.h)
+  ctx.restore()
 
-  // 7. Orderbook overlay
-  if (opts.orderbookData && opts.orderbookState) {
-    ctx.globalAlpha = revealRamp(0.5, 0.9)
-    drawOrderbook(ctx, layout, palette, opts.orderbookData, opts.dt, opts.orderbookState, opts.swingMagnitude)
-    ctx.globalAlpha = 1
+  // 8. Crosshair — fade out well before reaching live dot
+  if (opts.hoverX !== null && opts.hoverValue !== null && opts.hoverTime !== null && pts && pts.length > 0) {
+    const lastPt = pts[pts.length - 1]
+    const distToLive = lastPt[0] - opts.hoverX
+    const fadeStart = Math.min(80, layout.chartW * 0.3)
+    const scrubOpacity = distToLive < CROSSHAIR_FADE_MIN_PX ? 0
+      : distToLive >= fadeStart ? opts.scrubAmount
+      : ((distToLive - CROSSHAIR_FADE_MIN_PX) / (fadeStart - CROSSHAIR_FADE_MIN_PX)) * opts.scrubAmount
+
+    if (scrubOpacity > 0.01) {
+      drawCrosshair(
+        ctx, layout, palette,
+        opts.hoverX, opts.hoverValue, opts.hoverTime,
+        opts.formatValue, opts.formatTime,
+        scrubOpacity,
+        opts.tooltipY,
+        lastPt[0], // liveDotX — tooltip right edge stops here
+        opts.tooltipOutline,
+      )
+    }
   }
 
-  // 8. Crosshair (on top of everything)
-  if (scrubX !== null && opts.hoverValue !== null && opts.hoverTime !== null) {
-    const liveDotX = pts && pts.length > 0 ? pts[pts.length - 1][0] : undefined
-    // Edge fade — suppress crosshair when hovering near edges
-    const fadeStart = layout.pad.left + CROSSHAIR_FADE_MIN_PX
-    const fadeEnd = layout.pad.left + FADE_EDGE_WIDTH
-    const leftFade = scrubX < fadeStart ? 0 : scrubX > fadeEnd ? 1 : (scrubX - fadeStart) / (fadeEnd - fadeStart)
-    const rightStart = chartRight - FADE_EDGE_WIDTH
-    const rightEnd = chartRight - CROSSHAIR_FADE_MIN_PX
-    const rightFade = scrubX > rightEnd ? 0 : scrubX < rightStart ? 1 : (rightEnd - scrubX) / (rightEnd - rightStart)
-    const edgeFade = Math.min(leftFade, rightFade)
-    
-    ctx.globalAlpha = opts.scrubAmount * edgeFade
-    drawCrosshair(
-      ctx, layout, palette, scrubX, opts.hoverValue, opts.hoverTime,
-      opts.formatValue, opts.formatTime, opts.scrubAmount * edgeFade,
-      opts.tooltipY, liveDotX, opts.tooltipOutline,
-    )
-    ctx.globalAlpha = 1
-  }
-
-  // Restore from shake transform
-  if (shake && shake.amplitude > SHAKE_MIN_AMPLITUDE) {
+  // Restore shake translate
+  if (shake && (shakeX !== 0 || shakeY !== 0)) {
     ctx.restore()
   }
 }
@@ -256,79 +297,153 @@ export function drawMultiFrame(
   layout: ChartLayout,
   opts: MultiSeriesDrawOptions,
 ): void {
-  const reveal = opts.chartReveal
-  const pause = opts.pauseProgress
   const palette = opts.primaryPalette
-  const chartRight = layout.w - layout.pad.right
+  const reveal = opts.chartReveal
 
   const revealRamp = (start: number, end: number) => {
     const t = Math.max(0, Math.min(1, (reveal - start) / (end - start)))
     return t * t * (3 - 2 * t)
   }
 
-  // 1. Grid
-  if (opts.showGrid) {
-    ctx.globalAlpha = revealRamp(0.2, 0.6) * (1 - pause * 0.3)
-    drawGrid(ctx, layout, palette, opts.formatValue, opts.gridState, opts.dt)
-    ctx.globalAlpha = 1
-  }
-
-  // 2. Reference line
-  if (opts.referenceLine) {
-    ctx.globalAlpha = revealRamp(0.3, 0.7)
+  // 1. Reference line
+  if (opts.referenceLine && reveal > 0.01) {
+    ctx.save()
+    if (reveal < 1) ctx.globalAlpha = reveal
     drawReferenceLine(ctx, layout, palette, opts.referenceLine)
-    ctx.globalAlpha = 1
+    ctx.restore()
   }
 
-  // 3. Draw each series line + dot
-  const allPts: { x: number; y: number; color: string }[] = []
-  for (const s of opts.series) {
+  // 2. Grid
+  if (opts.showGrid) {
+    const gridAlpha = reveal < 1 ? revealRamp(0.15, 0.7) : 1
+    if (gridAlpha > 0.01) {
+      ctx.save()
+      if (gridAlpha < 1) ctx.globalAlpha = gridAlpha
+      drawGrid(ctx, layout, palette, opts.formatValue, opts.gridState, opts.dt)
+      ctx.restore()
+    }
+  }
+
+  // 3. Draw each series line (back to front, no fill, with scrub dimming)
+  // During reverse morph, secondary lines fade out so only one remains at
+  // chartReveal=0 — prevents alpha compounding from multiple overlapping strokes
+  // looking brighter than the single standalone loading squiggly.
+  const scrubX = opts.scrubAmount > 0.05 ? opts.hoverX : null
+  const allPts: { pts: [number, number][]; palette: LivelinePalette; label?: string; alpha: number }[] = []
+  for (let si = 0; si < opts.series.length; si++) {
+    const s = opts.series[si]
     const seriesAlpha = s.alpha ?? 1
-    if (seriesAlpha < 0.01) continue
-
-    ctx.globalAlpha = seriesAlpha
+    const secondaryFade = (si > 0 && reveal < 1) ? Math.min(1, reveal * 2) : 1
+    const combinedAlpha = secondaryFade * seriesAlpha
+    if (combinedAlpha < 0.01) continue
+    ctx.save()
+    if (combinedAlpha < 1) ctx.globalAlpha = combinedAlpha
     const pts = drawLine(
-      ctx, layout, s.palette, s.visible, s.smoothValue,
-      opts.now, false, // no fill for multi-series
-      opts.hoverX, opts.scrubAmount, reveal, opts.now_ms,
+      ctx, layout, s.palette, s.visible, s.smoothValue, opts.now,
+      false, // no fill
+      scrubX, opts.scrubAmount,
+      reveal, opts.now_ms,
     )
-    ctx.globalAlpha = 1
-
+    ctx.restore()
     if (pts && pts.length > 0) {
-      const [dotX, dotY] = pts[pts.length - 1]
-      allPts.push({ x: dotX, y: dotY, color: s.palette.line })
-      ctx.globalAlpha = seriesAlpha * revealRamp(0.4, 0.8)
-      drawMultiDot(ctx, dotX, dotY, s.palette.line, opts.showPulse, opts.now_ms)
-      ctx.globalAlpha = 1
+      allPts.push({ pts, palette: s.palette, label: s.label, alpha: seriesAlpha })
     }
   }
 
   // 4. Time axis
-  ctx.globalAlpha = revealRamp(0.3, 0.7)
-  drawTimeAxis(
-    ctx, layout, palette, opts.windowSecs, opts.targetWindowSecs,
-    opts.formatTime, opts.timeAxisState, opts.dt,
-  )
-  ctx.globalAlpha = 1
+  {
+    const timeAlpha = reveal < 1 ? revealRamp(0.15, 0.7) : 1
+    if (timeAlpha > 0.01) {
+      ctx.save()
+      if (timeAlpha < 1) ctx.globalAlpha = timeAlpha
+      drawTimeAxis(ctx, layout, palette, opts.windowSecs, opts.targetWindowSecs, opts.formatTime, opts.timeAxisState, opts.dt)
+      ctx.restore()
+    }
+  }
 
-  // 5. Multi-crosshair
-  if (opts.hoverX !== null && opts.hoverTime !== null && opts.hoverEntries.length > 0) {
-    const liveDotX = allPts.length > 0 ? Math.max(...allPts.map(p => p.x)) : undefined
-    // Edge fade
-    const fadeStart = layout.pad.left + CROSSHAIR_FADE_MIN_PX
-    const fadeEnd = layout.pad.left + FADE_EDGE_WIDTH
-    const leftFade = opts.hoverX < fadeStart ? 0 : opts.hoverX > fadeEnd ? 1 : (opts.hoverX - fadeStart) / (fadeEnd - fadeStart)
-    const rightStart = chartRight - FADE_EDGE_WIDTH
-    const rightEnd = chartRight - CROSSHAIR_FADE_MIN_PX
-    const rightFade = opts.hoverX > rightEnd ? 0 : opts.hoverX < rightStart ? 1 : (rightEnd - opts.hoverX) / (rightEnd - rightStart)
-    const edgeFade = Math.min(leftFade, rightFade)
+  // 5. Endpoint dots + labels for each series
+  // Dots stay at reveal-based alpha only (no scrub dimming) — matching
+  // single-series where drawDot keeps inner dot at full baseAlpha
+  if (reveal > 0.3 && allPts.length > 0) {
+    const dotAlpha = (reveal - 0.3) / 0.7
+    const showPulse = opts.showPulse && reveal > 0.6 && opts.pauseProgress < 0.5
 
-    ctx.globalAlpha = opts.scrubAmount * edgeFade
-    drawMultiCrosshair(
-      ctx, layout, palette, opts.hoverX, opts.hoverTime,
-      opts.hoverEntries, opts.formatValue, opts.formatTime,
-      opts.scrubAmount * edgeFade, opts.tooltipY, opts.tooltipOutline, liveDotX,
-    )
-    ctx.globalAlpha = 1
+    for (const entry of allPts) {
+      if (entry.alpha < 0.01) continue
+      const lastPt = entry.pts[entry.pts.length - 1]
+
+      ctx.save()
+      ctx.globalAlpha = dotAlpha * entry.alpha
+
+      // Use pulsing dot when enabled and series is mostly visible
+      if (showPulse && entry.alpha > 0.5) {
+        drawMultiDot(ctx, lastPt[0], lastPt[1], entry.palette.line, true, opts.now_ms, 3)
+      } else {
+        drawSimpleDot(ctx, lastPt[0], lastPt[1], entry.palette.line, 3)
+      }
+
+      // Label at endpoint (right of dot — layout reserves space via labelReserve)
+      if (entry.label) {
+        ctx.font = '600 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif'
+        ctx.textAlign = 'left'
+        ctx.fillStyle = entry.palette.line
+        ctx.fillText(entry.label, lastPt[0] + 6, lastPt[1] + 3.5)
+      }
+      ctx.restore()
+    }
+  }
+
+  // 6. Left edge fade
+  ctx.save()
+  ctx.globalCompositeOperation = 'destination-out'
+  const fadeGrad = ctx.createLinearGradient(layout.pad.left, 0, layout.pad.left + FADE_EDGE_WIDTH, 0)
+  fadeGrad.addColorStop(0, 'rgba(0, 0, 0, 1)')
+  fadeGrad.addColorStop(1, 'rgba(0, 0, 0, 0)')
+  ctx.fillStyle = fadeGrad
+  ctx.fillRect(0, 0, layout.pad.left + FADE_EDGE_WIDTH, layout.h)
+  ctx.restore()
+
+  // 7. Multi-series crosshair — fade out near live dots (same logic as single-series)
+  if (opts.hoverX !== null && opts.hoverTime !== null && opts.hoverEntries.length > 0 && allPts.length > 0 && opts.scrubAmount > 0.01) {
+    // Find rightmost live dot X (skip hidden series)
+    let maxLiveDotX = 0
+    for (const entry of allPts) {
+      if (entry.alpha < 0.01) continue
+      const lastX = entry.pts[entry.pts.length - 1][0]
+      if (lastX > maxLiveDotX) maxLiveDotX = lastX
+    }
+
+    const distToLive = maxLiveDotX - opts.hoverX
+    const fadeStart = Math.min(80, layout.chartW * 0.3)
+    const scrubOpacity = distToLive < CROSSHAIR_FADE_MIN_PX ? 0
+      : distToLive >= fadeStart ? opts.scrubAmount
+      : ((distToLive - CROSSHAIR_FADE_MIN_PX) / (fadeStart - CROSSHAIR_FADE_MIN_PX)) * opts.scrubAmount
+
+    if (scrubOpacity > 0.01) {
+      drawMultiCrosshair(
+        ctx, layout, palette,
+        opts.hoverX, opts.hoverTime,
+        opts.hoverEntries,
+        opts.formatValue, opts.formatTime,
+        scrubOpacity,
+        opts.tooltipY,
+        opts.tooltipOutline,
+        maxLiveDotX,
+      )
+    }
   }
 }
+
+// Re-exports for external use
+export { drawGrid, type GridState } from './grid'
+export { drawLine } from './line'
+export { drawDot, drawArrows, drawSimpleDot, drawMultiDot } from './dot'
+export { drawCrosshair, drawMultiCrosshair, type MultiSeriesHoverEntry } from './crosshair'
+export { drawReferenceLine } from './referenceLine'
+export { drawTimeAxis, type TimeAxisState } from './timeAxis'
+export { drawOrderbook, type OrderbookState } from './orderbook'
+export { drawParticles, spawnOnSwing, type ParticleState } from './particles'
+export { drawEmpty } from './empty'
+export { drawLoading } from './loading'
+export { loadingY, loadingBreath, LOADING_AMPLITUDE_RATIO, LOADING_SCROLL_SPEED } from './loadingShape'
+export { badgeSvgPath, badgePillOnly, BADGE_PAD_X, BADGE_PAD_Y, BADGE_TAIL_LEN, BADGE_TAIL_SPREAD, BADGE_LINE_H } from './badge'

@@ -23,19 +23,19 @@ export interface OrderbookState {
   churnRate: number // smoothed 0-1, how much the book is changing
 }
 
-const MAX_LABELS = 50
-const LABEL_LIFETIME = 6 // seconds
-const SPAWN_INTERVAL = 40 // ms
-const MIN_LABEL_GAP = 22 // px
-const BASE_SPEED = 60 // px/s calm
-const MAX_SPEED = 160 // px/s during big activity
-
 export function createOrderbookState(): OrderbookState {
   return {
     labels: [], spawnTimer: 0, smoothSpeed: BASE_SPEED,
     prevBidTotal: 0, prevAskTotal: 0, churnRate: 0,
   }
 }
+
+const MAX_LABELS = 50
+const LABEL_LIFETIME = 6 // seconds
+const SPAWN_INTERVAL = 40 // ms
+const MIN_LABEL_GAP = 22 // px
+const BASE_SPEED = 60 // px/s calm
+const MAX_SPEED = 160 // px/s during big activity
 
 function mixColor(
   from: [number, number, number],
@@ -46,12 +46,6 @@ function mixColor(
   const g = Math.round(from[1] + (to[1] - from[1]) * t)
   const b = Math.round(from[2] + (to[2] - from[2]) * t)
   return `rgb(${r},${g},${b})`
-}
-
-function formatSize(size: number): string {
-  if (size >= 10) return `$${Math.round(size)}`
-  if (size >= 1) return `$${size.toFixed(1)}`
-  return `$${size.toFixed(2)}`
 }
 
 /**
@@ -200,4 +194,10 @@ export function drawOrderbook(
   }
 
   ctx.restore()
+}
+
+function formatSize(size: number): string {
+  if (size >= 10) return `$${Math.round(size)}`
+  if (size >= 1) return `$${size.toFixed(1)}`
+  return `$${size.toFixed(2)}`
 }

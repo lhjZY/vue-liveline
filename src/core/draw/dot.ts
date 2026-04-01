@@ -1,4 +1,5 @@
 import type { Momentum, LivelinePalette } from '../types'
+import type { ArrowState } from './index'
 import { parseColorRgb } from '../theme'
 import { lerp } from '../math/lerp'
 
@@ -117,12 +118,6 @@ export function drawSimpleDot(
   ctx.fill()
 }
 
-export interface ArrowState { up: number; down: number }
-
-export function createArrowState(): ArrowState {
-  return { up: 0, down: 0 }
-}
-
 /** Draw momentum arrows (chevrons) next to the dot. */
 export function drawArrows(
   ctx: CanvasRenderingContext2D,
@@ -175,9 +170,9 @@ export function drawArrows(
       const wave = (localT >= 0 && localT < dur)
         ? Math.sin((localT / dur) * Math.PI)
         : 0
-      const pulseAnim = 0.3 + 0.7 * wave
+      const pulse = 0.3 + 0.7 * wave
 
-      ctx.globalAlpha = baseAlpha * opacity * pulseAnim
+      ctx.globalAlpha = baseAlpha * opacity * pulse
 
       const nudge = dir === -1 ? -3 : 3
       const cy = baseY + dir * (i * 8 - 4) + nudge
