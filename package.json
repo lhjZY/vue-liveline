@@ -1,6 +1,6 @@
 {
   "name": "vue-liveline",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "description": "A Vue 3 component library",
   "type": "module",
   "main": "./dist/vue-liveline.umd.cjs",
@@ -12,16 +12,16 @@
       "require": "./dist/vue-liveline.umd.cjs",
       "types": "./dist/index.d.ts"
     },
-    "./dist/style.css": "./dist/style.css"
+    "./dist/style.css": "./dist/vue-liveline.css"
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "dev": "vite",
+    "dev": "pnpm -C playground dev",
     "build": "run-p type-check \"build-only {@}\" --",
-    "build:demo": "vite build --config vite.config.demo.ts",
-    "preview": "vite preview",
+    "build:demo": "pnpm run build-only && pnpm -C playground run build:pages",
+    "preview": "pnpm -C playground preview",
     "build-only": "vite build",
     "type-check": "vue-tsc --build"
   },

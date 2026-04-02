@@ -30,7 +30,7 @@ jobs:
       - run: pnpm run build:demo
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist-demo
+          path: playground/dist
   deploy:
     environment:
       name: github-pages

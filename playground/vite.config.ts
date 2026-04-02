@@ -1,18 +1,14 @@
 import { fileURLToPath, URL } from 'node:url'
-
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
-// Demo page configuration for GitHub Pages
-export default defineConfig({
+// GitHub Pages: https://<user>.github.io/vue-liveline/
+export default defineConfig(({ command }) => ({
   plugins: [vue()],
-  base: '/vue-liveline/',
+  base: command === 'build' ? '/vue-liveline/' : '/',
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
-  build: {
-    outDir: 'dist-demo',
-  },
-})
+}))
