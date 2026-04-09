@@ -1,5 +1,5 @@
 import { ref, computed, onUnmounted, watch } from 'vue'
-import type { LivelinePoint, LivelineSeries } from 'vue-liveline'
+import type { LivelinePoint, LivelineSeries } from '../../../src'
 
 export type Volatility = 'calm' | 'normal' | 'spiky' | 'chaos'
 export type Scenario = 'loading' | 'loading-hold' | 'live' | 'empty'
@@ -199,6 +199,8 @@ export function useLivelineDemo() {
 
       seriesValues.value = { ...seriesValues.value }
       seriesData.value = { ...seriesData.value }
+
+      console.log(activeSeries.value)
 
       console.log('[interval] Updated values:', seriesValues.value.price?.toFixed(2))
     }, tickRate.value)

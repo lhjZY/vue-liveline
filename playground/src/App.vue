@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Liveline } from 'vue-liveline'
+import { Liveline } from '../../src'
 import { useLivelineDemo, type Scenario } from './demo/useLivelineDemo'
 
 const {

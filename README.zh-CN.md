@@ -26,7 +26,6 @@ npm install vue-liveline
 <script setup>
 import { ref } from 'vue'
 import { Liveline } from 'vue-liveline'
-import 'vue-liveline/dist/vue-liveline.css'
 
 const data = ref([
   { time: Date.now() / 1000 - 60, value: 100 },

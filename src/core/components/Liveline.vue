@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, shallowRef, watch, onMounted } from 'vue'
-import type { LivelineProps, Padding, DegenOptions, BadgeVariant } from '../types'
+import { ref, computed, shallowRef, watch } from 'vue'
+import type { LivelineProps, Padding, DegenOptions, BadgeVariant, WindowOption } from '../types'
 import { resolveTheme, resolveSeriesPalettes, SERIES_COLORS } from '../theme'
 import { useLivelineEngine, type EngineConfig } from '../useLivelineEngine'
 
@@ -235,15 +235,128 @@ const showSeriesToggle = computed(() => props.series && props.series.length > 1)
 const cursorStyle = computed(() => props.scrub ? props.cursor : 'default')
 const activeColor = computed(() => isDark.value ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.55)')
 const inactiveColor = computed(() => isDark.value ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.22)')
+
+const hoveredWindowSecs = ref<number | null>(null)
+
+const windowsContainerStyle = computed(() => {
+  const style = props.windowStyle || 'default'
+  if (style === 'rounded') {
+    return {
+      position: 'relative' as const,
+      display: 'inline-flex' as const,
+      gap: '2px',
+      padding: '3px',
+      borderRadius: '999px',
+      background: isDark.value ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
+    }
+  }
+
+  if (style === 'text') {
+    return {
+      position: 'relative' as const,
+      display: 'inline-flex' as const,
+      gap: '4px',
+      padding: '0',
+      borderRadius: '6px',
+      background: 'transparent',
+    }
+  }
+
+  return {
+    position: 'relative' as const,
+    display: 'inline-flex' as const,
+    gap: '2px',
+    padding: '2px',
+    borderRadius: '6px',
+    background: isDark.value ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
+  }
+})
+
+function windowButtonStyle(w: WindowOption) {
+  const isActive = w.secs === activeWindowSecs.value
+  const isHovered = hoveredWindowSecs.value === w.secs
+  return {
+    position: 'relative' as const,
+    zIndex: 1,
+    fontSize: '11px',
+    padding: (props.windowStyle || 'default') === 'text' ? '2px 6px' : '3px 10px',
+    background: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    transition: 'color 0.2s',
+    fontFamily: 'inherit',
+    appearance: 'none' as const,
+    WebkitAppearance: 'none' as const,
+    margin: '0',
+    color: isActive ? activeColor.value : inactiveColor.value,
+    opacity: isHovered ? 0.8 : 1,
+  }
+}
+
+function isSeriesHidden(id: string) {
+  return hiddenSeriesIds.value.has(id)
+}
+
+function seriesToggleButtonStyle(id: string) {
+  const hidden = isSeriesHidden(id)
+  return {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    padding: '3px 8px',
+    background: hidden
+      ? 'transparent'
+      : isDark.value
+        ? 'rgba(255, 255, 255, 0.06)'
+        : 'rgba(0, 0, 0, 0.035)',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    opacity: hidden ? 0.4 : 1,
+    transition: 'opacity 0.2s, background 0.15s, color 0.2s',
+    fontFamily: 'system-ui, -apple-system, sans-serif',
+    fontSize: '11px',
+    fontWeight: 500,
+    lineHeight: '16px',
+    appearance: 'none' as const,
+    WebkitAppearance: 'none' as const,
+    margin: '0',
+    color: hidden
+      ? isDark.value
+        ? 'rgba(255, 255, 255, 0.25)'
+        : 'rgba(0, 0, 0, 0.22)'
+      : isDark.value
+        ? 'rgba(255, 255, 255, 0.7)'
+        : 'rgba(0, 0, 0, 0.55)',
+  }
+}
+
+function seriesDotStyle(id: string, color: string) {
+  return {
+    display: 'inline-block',
+    width: '6px',
+    height: '6px',
+    borderRadius: '50%',
+    flexShrink: 0,
+    transition: 'opacity 0.2s',
+    opacity: isSeriesHidden(id) ? 0.4 : 1,
+    backgroundColor: color,
+  }
+}
 </script>
 
 <template>
-  <div class="liveline-wrapper" :class="isDark ? 'dark' : 'light'">
+  <div
+    class="liveline-wrapper"
+    :class="isDark ? 'dark' : 'light'"
+    style="display: flex; flex-direction: column; width: 100%; height: 100%;"
+  >
     <!-- Live value display -->
     <span
       v-if="showValue"
       ref="valueDisplayRef"
       class="liveline-value"
+      style="display: block; font-size: 20px; font-weight: 500; font-family: 'SF Mono', Menlo, monospace; transition: color 0.3s; letter-spacing: -0.01em; margin-bottom: 8px; padding-top: 4px;"
       :style="{
         paddingLeft: `${resolvedPadding.left}px`,
         color: isDark ? 'rgba(255,255,255,0.85)' : '#111',
@@ -254,6 +367,7 @@ const inactiveColor = computed(() => isDark.value ? 'rgba(255,255,255,0.25)' : '
     <div
       v-if="(windows && windows.length > 0) || showSeriesToggle"
       class="liveline-controls"
+      style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;"
       :style="{ marginLeft: `${resolvedPadding.left}px` }"
     >
       <!-- Time window controls -->
@@ -261,15 +375,16 @@ const inactiveColor = computed(() => isDark.value ? 'rgba(255,255,255,0.25)' : '
         v-if="windows && windows.length > 0"
         class="liveline-windows"
         :class="[windowStyle || 'default', isDark ? 'dark' : 'light']"
+        :style="windowsContainerStyle"
       >
         <button
           v-for="w in windows"
           :key="w.secs"
           class="liveline-window-btn"
           :class="{ active: w.secs === activeWindowSecs }"
-          :style="{
-            color: w.secs === activeWindowSecs ? activeColor : inactiveColor,
-          }"
+          :style="windowButtonStyle(w)"
+          @mouseenter="hoveredWindowSecs = w.secs"
+          @mouseleave="hoveredWindowSecs = null"
           @click="handleWindowChange(w.secs)"
         >
           {{ w.label }}
@@ -277,19 +392,28 @@ const inactiveColor = computed(() => isDark.value ? 'rgba(255,255,255,0.25)' : '
       </div>
 
       <!-- Series toggle -->
-      <div v-if="showSeriesToggle" class="liveline-series-toggle">
+      <div
+        v-if="showSeriesToggle"
+        class="liveline-series-toggle"
+        style="display: flex; gap: 4px;"
+      >
         <button
           v-for="s in series"
           :key="s.id"
           class="liveline-series-btn"
-          :class="{ hidden: hiddenSeriesIds.has(s.id) }"
+          :class="{ hidden: isSeriesHidden(s.id) }"
+          :style="seriesToggleButtonStyle(s.id)"
           @click="toggleSeries(s.id)"
         >
           <span
             class="liveline-series-dot"
-            :style="{ backgroundColor: s.color || SERIES_COLORS[series!.indexOf(s) % SERIES_COLORS.length] }"
+            :style="seriesDotStyle(s.id, s.color || SERIES_COLORS[series!.indexOf(s) % SERIES_COLORS.length])"
           />
-          <span v-if="!seriesToggleCompact && s.label" class="liveline-series-label">
+          <span
+            v-if="!seriesToggleCompact && s.label"
+            class="liveline-series-label"
+            style="font-size: 11px;"
+          >
             {{ s.label }}
           </span>
         </button>
@@ -297,149 +421,16 @@ const inactiveColor = computed(() => isDark.value ? 'rgba(255,255,255,0.25)' : '
     </div>
 
     <!-- Chart container -->
-    <div ref="containerRef" class="liveline-container" :style="{ cursor: cursorStyle }">
-      <canvas ref="canvasRef" />
+    <div
+      ref="containerRef"
+      class="liveline-container"
+      style="position: relative; flex: 1; min-height: 0;"
+      :style="{ cursor: cursorStyle }"
+    >
+      <canvas
+        ref="canvasRef"
+        style="display: block; width: 100%; height: 100%;"
+      />
     </div>
   </div>
 </template>
-
-<style scoped>
-.liveline-wrapper {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  height: 100%;
-}
-
-.liveline-value {
-  display: block;
-  font-size: 20px;
-  font-weight: 500;
-  font-family: "SF Mono", Menlo, monospace;
-  transition: color 0.3s;
-  letter-spacing: -0.01em;
-  margin-bottom: 8px;
-  padding-top: 4px;
-}
-
-.liveline-controls {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 6px;
-}
-
-.liveline-windows {
-  position: relative;
-  display: inline-flex;
-  gap: 2px;
-  padding: 2px;
-  border-radius: 6px;
-}
-
-.liveline-windows.dark {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.liveline-windows.light {
-  background: rgba(0, 0, 0, 0.02);
-}
-
-.liveline-windows.rounded {
-  border-radius: 999px;
-  padding: 3px;
-  gap: 2px;
-}
-
-.liveline-windows.text {
-  background: transparent;
-  padding: 0;
-  gap: 4px;
-}
-
-.liveline-window-btn {
-  position: relative;
-  z-index: 1;
-  font-size: 11px;
-  padding: 3px 10px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  transition: color 0.2s;
-  font-family: inherit;
-}
-
-.liveline-windows.text .liveline-window-btn {
-  padding: 2px 6px;
-}
-
-.liveline-window-btn:hover {
-  opacity: 0.8;
-}
-
-.liveline-series-toggle {
-  display: flex;
-  gap: 4px;
-}
-
-.liveline-series-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  background: rgba(255, 255, 255, 0.06);
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  opacity: 1;
-  transition: opacity 0.2s, background 0.15s, color 0.2s;
-  font-family: system-ui, -apple-system, sans-serif;
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 16px;
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.liveline-wrapper.light .liveline-series-btn {
-  background: rgba(0, 0, 0, 0.035);
-  color: rgba(0, 0, 0, 0.55);
-}
-
-.liveline-series-btn.hidden {
-  opacity: 0.4;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.25);
-}
-
-.liveline-wrapper.light .liveline-series-btn.hidden {
-  color: rgba(0, 0, 0, 0.22);
-}
-
-.liveline-series-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  transition: opacity 0.2s;
-}
-
-.liveline-series-btn.hidden .liveline-series-dot {
-  opacity: 0.4;
-}
-
-.liveline-series-label {
-  font-size: 11px;
-}
-
-.liveline-container {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-}
-
-.liveline-container canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-</style>

@@ -1,6 +1,6 @@
 {
   "name": "vue-liveline",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "A Vue 3 component library",
   "type": "module",
   "main": "./dist/vue-liveline.umd.cjs",
@@ -11,8 +11,7 @@
       "import": "./dist/vue-liveline.js",
       "require": "./dist/vue-liveline.umd.cjs",
       "types": "./dist/index.d.ts"
-    },
-    "./dist/style.css": "./dist/vue-liveline.css"
+    }
   },
   "files": [
     "dist"
